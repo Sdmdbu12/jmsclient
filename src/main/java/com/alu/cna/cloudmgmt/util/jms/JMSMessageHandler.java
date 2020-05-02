@@ -1,4 +1,4 @@
-/*
+ /*
  ***************************************************************************
  *
  * Filename    : JMSMessageHandler
@@ -105,7 +105,7 @@ public class JMSMessageHandler implements MessageListener
         }
     }
 
-	protected JSONObject getGelf(msgString)
+	protected JSONObject getGelf(String msgString)
 	{
 		JSONObject obj = new JSONObject();
 		obj.put("version", "1.1");
@@ -116,7 +116,7 @@ public class JMSMessageHandler implements MessageListener
 		
 	}
 	
-	protected boolean sendToGraylog(targeturl, msgString)
+	protected boolean sendToGraylog(String targeturl, String msgString)
 	{
         JSONObject gelfjson = getGelf(msgString);
 		URL myurl = new URL(targeturl);
