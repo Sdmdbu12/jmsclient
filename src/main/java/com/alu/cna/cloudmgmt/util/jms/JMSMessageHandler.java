@@ -24,6 +24,17 @@ import javax.jms.TextMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Timestamp;
+import org.json.simple.JSONObject;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+ 
+import java.io.OutputStream;
+  
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 public class JMSMessageHandler implements MessageListener
 {
@@ -73,15 +84,19 @@ public class JMSMessageHandler implements MessageListener
             }
             log.debug("message params: {}", params.toString());
             log.debug("message ID: {}", msg.getJMSMessageID());
+			String msgString = null;
             if (msg instanceof TextMessage)
             {
-                log.debug("message body: {}", ((TextMessage) msg).getText());
+				msgString = ((TextMessage) msg).getText();
+                log.debug("message body: {}", msgString);
             }
             else
             {
-                log.debug("message body: {}", msg.toString());
+				msgString = msg.toString();
+                log.debug("message body: {}", msgString);
             }
-            return true;
+			
+            return sendToGraylog("http://172.16.0.53:12202/gelf", msgString);
         }
         catch (JMSException e)
         {
@@ -90,4 +105,51 @@ public class JMSMessageHandler implements MessageListener
         }
     }
 
+	protected JSONObject getGelf(msgString)
+	{
+		JSONObject obj = new JSONObject();
+		obj.put("version", "1.1");
+		obj.put("host", "npi-p7-h1");
+		obj.put("short_message", msgString);
+		obj.put("timestamp", timestamp.getTime());
+		return obj;
+		
+	}
+	
+	protected boolean sendToGraylog(targeturl, msgString)
+	{
+        JSONObject gelfjson = getGelf(msgString);
+		URL myurl = new URL(targeturl);
+        HttpURLConnection con = (HttpURLConnection)myurl.openConnection();
+        con.setDoOutput(true);
+        con.setDoInput(true);
+ 
+        con.setRequestProperty("Content-Type", "application/json;");
+        con.setRequestProperty("Accept", "application/json,text/plain");
+        con.setRequestProperty("Method", "POST");
+        OutputStream os = con.getOutputStream();
+        os.write(gelfjson.toString().getBytes("UTF-8"));
+        os.close();
+ 
+ 
+        StringBuilder sb = new StringBuilder();  
+        int HttpResult =con.getResponseCode();
+        if(HttpResult ==HttpURLConnection.HTTP_OK){
+			log.debug("Graylog send success");
+			BufferedReader br = new BufferedReader(new   InputStreamReader(con.getInputStream(),"utf-8"));  
+ 
+            String line = null;
+            while ((line = br.readLine()) != null) {  
+            sb.append(line + "\n");  
+            }
+             br.close();
+			 log.debug(""+sb.toString());  
+			return true;
+        }else{
+			log.debug("Graylog send Failed");
+            log.debug(con.getResponseCode());
+            log.debug(con.getResponseMessage());  
+			return false;
+        }  
+	}
 }
